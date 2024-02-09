@@ -1,29 +1,46 @@
+use dotenv::dotenv;
+use serenity::async_trait;
 use serenity::prelude::*;
-use serenity::model::gateway::Ready;
+use serenity::model::channel::Message;
+use serenity::framework::standard::macros::{command, group};
+use serenity::framework::standard::{StandardFramework, Configuration, CommandResult};
 use std::env;
+
+#[group]
+#[commands(ping)]
+struct General;
 
 struct Handler;
 
-impl EventHandler for Handler {
-    fn ready(&self, _: Context, ready: Ready) {
-        println!("{} ist verbunden!", ready.user.name);
+
+#[async_trait]
+impl EventHandler for Handler {}
+
+#[tokio::main]
+async fn main() {
+    dotenv().ok(); // Laden der .env-Datei
+
+    let token = env::var("DISCORD_TOKEN").expect("TOKEN not found in .env file");
+    
+    let framework = StandardFramework::new().group(&GENERAL_GROUP);
+    framework.configure(Configuration::new().prefix("§")); // set the bot's prefix to "~"
+
+    let intents = GatewayIntents::GUILD_MESSAGES | GatewayIntents::MESSAGE_CONTENT;
+    let mut client = Client::builder(token, intents)
+        .event_handler(Handler)
+        .framework(framework)
+        .await
+        .expect("Error creating client");
+
+    // start listening for events by starting a single shard
+    if let Err(why) = client.start().await {
+        println!("An error occurred while running the client: {:?}", why);
     }
 }
 
-fn main() {
-    // Laden der Umgebungsvariablen aus der .env-Datei
-    dotenv::dotenv().ok();
+#[command]
+async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
+    msg.reply(ctx, "Pong!").await?;
 
-    // Extrahieren des Discord-Bot-Tokens aus den Umgebungsvariablen
-    let token = env::var("DISCORD_TOKEN")
-        .expect("Fehler beim Laden des Bot-Tokens aus der Umgebungsvariablen");
-
-    // Erstellt einen neuen Discord-Client mit dem geladenen Token
-    let mut client = Client::new(&token, Handler)
-        .expect("Fehler beim Erstellen des Clients");
-
-    // Startet den Discord-Bot
-    if let Err(why) = client.start() {
-        println!("Fehler beim Starten des Bots: {:?}", why);
-    }
+    Ok(())
 }
